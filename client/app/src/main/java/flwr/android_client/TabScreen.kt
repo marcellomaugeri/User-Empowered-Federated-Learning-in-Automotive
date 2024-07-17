@@ -26,7 +26,8 @@ import dev.flower.flower_tflite.SampleSpec
 import dev.flower.flower_tflite.createFlowerService
 import dev.flower.flower_tflite.helpers.classifierAccuracy
 import dev.flower.flower_tflite.helpers.loadMappedAssetFile
-import dev.flower.flower_tflite.helpers.categoricalCrossEntropyLoss
+//import dev.flower.flower_tflite.helpers.categoricalCrossEntropyLoss
+import dev.flower.flower_tflite.helpers.negativeLogLikelihoodLoss
 import kotlinx.coroutines.*
 
 import java.text.SimpleDateFormat
@@ -181,13 +182,13 @@ class TabScreen(carContext: CarContext) : Screen(carContext) {
             SwitchFLAction("Federated Learning: ", flEnabled, object : ClickFLListener {
                 override fun onSwitchClick(isOn: Boolean) {
                     if (flEnabled) {
-                        trainingJob?.cancel()
+                        /*trainingJob?.cancel()
                         flowerClient?.cancelFit()
                         logAction("[TRAINING] Training cancelled.")
-                        flEnabled = false
+                        flEnabled = false */
                     } else {
                         createFlowerClient()
-                        flowerClient!!.startFitAsync()
+                        flowerClient!!.fit()
                         trainingJob = scope.launch {
                             loadDataInBackground()
                         }
@@ -318,12 +319,11 @@ class TabScreen(carContext: CarContext) : Screen(carContext) {
     private fun createFlowerClient() {
         val buffer = loadMappedAssetFile(carContext, "model/enginefaultdb.tflite")
         val layersSizes = intArrayOf(504, 36, 144, 16)
-        Log.d(TAG, "layersSizes: ${layersSizes.joinToString()}")
         val sampleSpec = SampleSpec<FeatureArray, FloatArray>(
             { it.toTypedArray() },
             { it.toTypedArray() },
             { Array(it) { FloatArray(CLASSES.size) } },
-            ::categoricalCrossEntropyLoss,
+            ::negativeLogLikelihoodLoss,
             ::classifierAccuracy,
         )
         flowerClient = FlowerClient(buffer, layersSizes, sampleSpec)
@@ -381,6 +381,6 @@ private const val TAG = "TabScreen"
 
 typealias FeatureArray = FloatArray
 
-private val DEVICE_ID = 1
+private val DEVICE_ID = 0
 private const val IP = "10.0.2.2"
 private const val PORT = 8080

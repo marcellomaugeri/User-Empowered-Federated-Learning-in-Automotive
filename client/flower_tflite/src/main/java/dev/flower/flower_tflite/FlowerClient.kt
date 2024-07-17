@@ -38,32 +38,25 @@ class FlowerClient<X : Any, Y : Any>(
     }
 
     fun getParameters(): Array<ByteBuffer> {
-        Log.d(TAG, "Getting parameters...")
         val inputs: Map<String, Any> = FakeNonEmptyMap()
-        Log.i(TAG, "Raw inputs: $inputs.")
         val outputs = emptyParameterMap()
         runSignatureLocked(inputs, outputs, "parameters")
-        Log.i(TAG, "Raw outputs: $outputs.")
         return parametersFromMap(outputs)
     }
 
     fun updateParameters(parameters: Array<ByteBuffer>): Array<ByteBuffer> {
-        Log.d(TAG, "Updating parameters: ${parameters.contentToString()}")
         val outputs = emptyParameterMap()
         runSignatureLocked(parametersToMap(parameters), outputs, "restore")
-        Log.d(TAG, "Updated parameters: ${parameters.contentToString()}")
         return parametersFromMap(outputs)
     }
 
     fun fit(
-        epochs: Int = 1, batchSize: Int = 16, lossCallback: ((List<Float>) -> Unit)? = null
+        epochs: Int = 1, batchSize: Int = 32, lossCallback: ((List<Float>) -> Unit)? = null
     ): List<Double> {
         Log.d(TAG, "Starting to train for $epochs epochs with batch size $batchSize.")
         return trainSampleLock.write {
             (1..epochs).map {
-
                 val losses = trainOneEpoch(batchSize)
-                Log.d(TAG, "Epoch $it: losses = $losses.")
                 lossCallback?.invoke(losses)
                 losses.average()
             }
@@ -73,7 +66,6 @@ class FlowerClient<X : Any, Y : Any>(
     fun evaluate(): Pair<Float, Float> {
         val result = testSampleLock.read {
             val bottlenecks = testSamples.map { it.bottleneck }
-            Log.d(TAG, "Evaluating with bottlenecks: $bottlenecks.")
             val logits = inference(spec.convertX(bottlenecks))
             spec.loss(testSamples, logits) to spec.accuracy(testSamples, logits)
         }
@@ -114,9 +106,7 @@ class FlowerClient<X : Any, Y : Any>(
         val outputs = mapOf<String, Any>(
             "loss" to loss,
         )
-        Log.d(TAG, "Training with inputs: $inputs")
         runSignatureLocked(inputs, outputs, "train")
-        Log.d(TAG, "Training loss: ${loss.get(0)}")
         return loss.get(0)
     }
 
@@ -177,25 +167,6 @@ class FlowerClient<X : Any, Y : Any>(
         interpreter.close()
     }
 
-    // Funzione per avviare l'operazione di fit in un thread separato
-    fun startFitAsync(
-        epochs: Int = 1, batchSize: Int = 16, lossCallback: ((List<Float>) -> Unit)? = null
-    ) {
-        // Cancella qualsiasi job precedente se esiste
-        fitJob?.cancel()
-
-        // Avvia un nuovo job per l'operazione di fit
-        fitJob = CoroutineScope(Dispatchers.Default).launch {
-            val losses = fit(epochs, batchSize, lossCallback)
-            Log.d(TAG, "Finished training with average losses per epoch: $losses")
-        }
-    }
-
-    // Funzione per cancellare l'operazione di fit in corso
-    fun cancelFit() {
-        fitJob?.cancel()
-        Log.d(TAG, "Training cancelled.")
-    }
 }
 
 data class Sample<X, Y>(val bottleneck: X, val label: Y)

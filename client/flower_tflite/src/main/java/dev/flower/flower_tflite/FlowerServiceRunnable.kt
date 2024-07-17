@@ -84,6 +84,7 @@ class FlowerServiceRunnable<X : Any, Y : Any>
     fun handleFitIns(message: ServerMessage): ClientMessage {
         Log.d(TAG, "Handling FitIns")
         callback("Handling Fit request from the server.")
+        Log.d(TAG, "Tensor List: ${message.fitIns.parameters.tensorsList} and config: ${message.fitIns.configMap}")
         val layers = message.fitIns.parameters.tensorsList
         assertIntsEqual(layers.size, flowerClient.layersSizes.size)
         val epochConfig = message.fitIns.configMap.getOrDefault(
@@ -94,7 +95,7 @@ class FlowerServiceRunnable<X : Any, Y : Any>
         flowerClient.updateParameters(newWeights.toTypedArray())
         flowerClient.fit(
             epochs,
-            lossCallback = { callback("Average loss: ${it.average()}. epoch: $epochs") })
+            lossCallback = { callback("Average loss: ${it.average()}.") })
         return fitResAsProto(weightsByteBuffers(), sampleSize)
     }
 
@@ -122,13 +123,9 @@ class FlowerServiceRunnable<X : Any, Y : Any>
 }
 
 fun weightsAsProto(weights: Array<ByteBuffer>): ClientMessage {
-    Log.d("Flower Service Runnable", "1")
     val layers = weights.map { ByteString.copyFrom(it) }
-    Log.d("Flower Service Runnable", "2")
     val p = Parameters.newBuilder().addAllTensors(layers).setTensorType("ND").build()
-    Log.d("Flower Service Runnable", "3")
     val res = ClientMessage.GetParametersRes.newBuilder().setParameters(p).build()
-    Log.d("Flower Service Runnable", "4")
     return ClientMessage.newBuilder().setGetParametersRes(res).build()
 }
 

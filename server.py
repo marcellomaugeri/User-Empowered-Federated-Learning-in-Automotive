@@ -10,14 +10,9 @@ PORT = 8080
 
 
 def fit_config(server_round: int):
-    """Return training configuration dict for each round.
-
-    Keep batch size fixed at 32, perform two rounds of training with one local epoch,
-    increase to two local epochs afterwards.
-    """
     config = {
         "batch_size": 16,
-        "local_epochs": 30,
+        "local_epochs": 10,
     }
     return config
 
@@ -34,10 +29,10 @@ def main():
     )
 
     try:
-        # Start Flower server for 10 rounds of federated learning
+        # Start Flower server for 100 rounds of federated learning
         start_server(
             server_address=f"0.0.0.0:{PORT}",
-            config=ServerConfig(num_rounds=10),
+            config=ServerConfig(num_rounds=2),
             strategy=strategy,
         )
     except KeyboardInterrupt:

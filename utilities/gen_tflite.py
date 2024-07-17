@@ -1,10 +1,8 @@
 import tensorflow as tf
 from os import path
+from keras.optimizers import Adam
 
 SAVED_MODEL_DIR = "saved_model"
-
-def red(string: str) -> str:
-    return f"\033[91m{string}\033[0m"
 
 class BaseTFLiteModel(tf.Module):
     """Base TFLite model class to inherit from. # Usage Inherent from this class and
@@ -91,9 +89,9 @@ def save_model(model, saved_model_dir):
         param.numpy() for param in parameters_from_raw_dict(init_params)
     ]
     shape = f"{[list(param.shape) for param in converted_params]}"
-    #print(f"Model parameter shape: {red(shape)}.")
+    print(f"Model parameter shape: {str(shape)}.")
     byte_sizes = f"{[param.size * param.itemsize for param in converted_params]}"
-    #print(f"Model parameter sizes in bytes: {red(byte_sizes)}.")
+    print(f"Model parameter sizes in bytes: {str(byte_sizes)}.")
     return converted_params
 
 
@@ -134,14 +132,14 @@ class EngineFaultDBModel(BaseTFLiteModel):
     def __init__(self):
 
         self.model = tf.keras.Sequential([
-            tf.keras.layers.Dense(9, activation='relu', input_shape=self.X_SHAPE),
-            tf.keras.layers.Dense(self.Y_SHAPE[0], activation='softmax')
+            tf.keras.Input(shape=tuple(self.X_SHAPE)),
+            tf.keras.layers.Dense(units=9, activation="relu"),
+            tf.keras.layers.Dense(units=4, activation="softmax")
         ])
 
         self.model.compile(
-            optimizer='adam',
-            loss='sparse_categorical_crossentropy',
-            metrics=['accuracy']
+            optimizer="adam",
+            loss="categorical_crossentropy"
         )
 
 TFLITE_FILE = f"enginefaultdb.tflite"

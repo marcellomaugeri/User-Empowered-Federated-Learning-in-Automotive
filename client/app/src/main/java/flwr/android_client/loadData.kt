@@ -26,6 +26,14 @@ suspend fun readAssetLines(
 
 /**
  * Load training data from disk.
+ * If you want to use raw EngineFaultDB parameters as input,
+ * you can run a MinMaxScaler with these parameters to normalize the dataset:
+ * Minimum values for each feature: [4.530000e-01 3.820000e-01 2.580000e+00 4.650000e-01
+ *  1.066452e+03 1.917000e+00 5.187000e+00 2.275700e+01 4.210000e-01
+ *  1.787000e+00 8.649000e+00 2.030000e-01 6.950000e-01 1.021000e+01]
+ * Maximum values for each feature: [4.547000e+00 4.048000e+00 1.537118e+03 3.394600e+01
+ *  5.013402e+03 1.481000e+01 2.004300e+01 1.075390e+02 1.013200e+01
+ *  9.756570e+02 1.512900e+01 1.151000e+00 1.149000e+00 1.689300e+01]
  */
 @Throws
 suspend fun loadData(
