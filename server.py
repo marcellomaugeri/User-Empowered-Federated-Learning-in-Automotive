@@ -21,9 +21,9 @@ def main():
     strategy = FedAvgAndroid(
         fraction_fit=1.0,
         fraction_evaluate=1.0,
-        min_fit_clients=1,
-        min_evaluate_clients=1,
-        min_available_clients=1,
+        min_fit_clients=2,
+        min_evaluate_clients=2,
+        min_available_clients=3,
         evaluate_fn=None,
         on_fit_config_fn=fit_config,
     )
@@ -32,7 +32,7 @@ def main():
         # Start Flower server for 100 rounds of federated learning
         start_server(
             server_address=f"0.0.0.0:{PORT}",
-            config=ServerConfig(num_rounds=2),
+            config=ServerConfig(num_rounds=10),
             strategy=strategy,
         )
     except KeyboardInterrupt:

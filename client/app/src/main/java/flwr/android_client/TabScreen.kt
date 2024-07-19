@@ -173,7 +173,7 @@ class TabScreen(carContext: CarContext) : Screen(carContext) {
         paneBuilder.addRow(
             Row.Builder()
                 .setTitle("Informed Consent")
-                .addText("This app uses Federated Learning to improve engine fault predictions, making your car safer and more reliable. By giving your consent, you allow your car to contribute to this effort without compromising your privacy. Only the insights learned from your car's data, not the raw data itself, are shared with others.")
+                .addText("This app uses Federated Learning to improve engine fault predictions, making your car safer and more reliable. By giving your consent, you allow your car to contribute to this effort without compromising your privacy. Only the insights learned from your car's data, not the raw data itself, are shared with others. You acknowledge that upon pressing the button, the federated learning process will start. Pressing the button again will stop the learning process only after the completion of the Ongoing training task.")
                 .build()
         )
 
@@ -182,19 +182,16 @@ class TabScreen(carContext: CarContext) : Screen(carContext) {
             SwitchFLAction("Federated Learning: ", flEnabled, object : ClickFLListener {
                 override fun onSwitchClick(isOn: Boolean) {
                     if (flEnabled) {
-                        /*trainingJob?.cancel()
-                        flowerClient?.cancelFit()
-                        logAction("[TRAINING] Training cancelled.")
-                        flEnabled = false */
+                        flEnabled = !flEnabled
                     } else {
                         createFlowerClient()
-                        flowerClient!!.fit()
-                        trainingJob = scope.launch {
+                        scope.launch {
                             loadDataInBackground()
                         }
-                        flEnabled = true
-                        logAction("[TRAINING] Training started.")
+                        flEnabled = !flEnabled
+
                     }
+                    logAction("[SYSTEM] Federated Learning switched to " + (if (isOn) "ON" else "OFF"))
                     invalidate()
                 }
             })
@@ -262,10 +259,10 @@ class TabScreen(carContext: CarContext) : Screen(carContext) {
     ): Action {
         return Action.Builder()
             .setTitle(title + " " + (
-                    if (isOn) {
-                        "ON"
+                    if (isOn){
+                        "ON";
                     } else {
-                        "OFF"
+                        "OFF";
                     }))
             .setOnClickListener {
                 val newIsOn = !isOn
@@ -362,7 +359,7 @@ class TabScreen(carContext: CarContext) : Screen(carContext) {
         val address = "dns:///$host:$port"
         runWithStacktraceOr("Failed to connect to the FL server \n") {
             createFlowerService(address, false, flowerClient!!) {
-                println("Result of Flower Service's creation: $it")
+                //println("Result of Flower Service's creation: $it")
                 CarToast.makeText(carContext, it, CarToast.LENGTH_SHORT).show()
             }
             "Connection to the FL server successful \n"

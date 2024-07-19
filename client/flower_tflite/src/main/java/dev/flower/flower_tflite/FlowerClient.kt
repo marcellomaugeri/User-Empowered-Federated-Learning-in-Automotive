@@ -51,20 +51,31 @@ class FlowerClient<X : Any, Y : Any>(
     }
 
     fun fit(
-        epochs: Int = 1, batchSize: Int = 32, lossCallback: ((List<Float>) -> Unit)? = null
+        epochs: Int = 1,
+        batchSize: Int = 16,
+        lossCallback: ((Int, List<Float>) -> Unit)? = null
     ): List<Double> {
-        Log.d(TAG, "Starting to train for $epochs epochs with batch size $batchSize.")
         return trainSampleLock.write {
-            (1..epochs).map {
+            if (trainingSamples.isEmpty()) {
+                Log.w(TAG, "No training samples available.")
+                lossCallback?.invoke(0, listOf(Float.NaN))
+                return@write listOf(Double.NaN)
+            }
+            (1..epochs).map { epoch ->
                 val losses = trainOneEpoch(batchSize)
-                lossCallback?.invoke(losses)
-                losses.average()
+                lossCallback?.invoke(epoch, losses)
+                val averageLoss = losses.average()
+                averageLoss
             }
         }
     }
 
     fun evaluate(): Pair<Float, Float> {
         val result = testSampleLock.read {
+            if (testSamples.isEmpty()) {
+                Log.w(TAG, "No test samples available for evaluation.")
+                return@read Float.NaN to Float.NaN
+            }
             val bottlenecks = testSamples.map { it.bottleneck }
             val logits = inference(spec.convertX(bottlenecks))
             spec.loss(testSamples, logits) to spec.accuracy(testSamples, logits)
@@ -83,8 +94,8 @@ class FlowerClient<X : Any, Y : Any>(
 
     private fun trainOneEpoch(batchSize: Int): List<Float> {
         if (trainingSamples.isEmpty()) {
-            Log.d(TAG, "No training samples available.")
-            return listOf()
+            Log.w(TAG, "No training samples available for this epoch.")
+            return listOf(Float.NaN)
         }
 
         trainingSamples.shuffle()
@@ -159,6 +170,9 @@ class FlowerClient<X : Any, Y : Any>(
             .toMap()
     }
 
+    fun getTrainingSamplesCount(): Int = trainSampleLock.read { trainingSamples.size }
+    fun getTestSamplesCount(): Int = testSampleLock.read { testSamples.size }
+
     companion object {
         private const val TAG = "Flower Client"
     }
@@ -166,7 +180,6 @@ class FlowerClient<X : Any, Y : Any>(
     override fun close() {
         interpreter.close()
     }
-
 }
 
 data class Sample<X, Y>(val bottleneck: X, val label: Y)

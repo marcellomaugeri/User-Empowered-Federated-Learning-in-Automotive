@@ -16,14 +16,6 @@ import kotlinx.coroutines.withContext
 import java.nio.ByteBuffer
 import java.util.concurrent.CountDownLatch
 
-/**
- * Start communication with Flower server and training in the background.
- * Note: constructing an instance of this class **immediately** starts training.
- *
- * Use [createFlowerService] to create a [FlowerServiceRunnable] instance using Flower server address.
- * @param flowerServerChannel Channel already connected to Flower server.
- * @param callback Called with information on training events.
- */
 class FlowerServiceRunnable<X : Any, Y : Any>
 @Throws constructor(
     flowerServerChannel: ManagedChannel,
@@ -31,7 +23,7 @@ class FlowerServiceRunnable<X : Any, Y : Any>
     val callback: (String) -> Unit
 ) {
     private val sampleSize: Int
-        get() = flowerClient.trainingSamples.size
+        get() = flowerClient.getTrainingSamplesCount()
     val finishLatch = CountDownLatch(1)
 
     val asyncStub = FlowerServiceGrpc.newStub(flowerServerChannel)!!
@@ -58,16 +50,15 @@ class FlowerServiceRunnable<X : Any, Y : Any>
 
     @Throws
     fun handleMessage(message: ServerMessage) {
-        val clientMessage = if (message.hasGetParametersIns()) {
-            handleGetParamsIns()
-        } else if (message.hasFitIns()) {
-            handleFitIns(message)
-        } else if (message.hasEvaluateIns()) {
-            handleEvaluateIns(message)
-        } else if (message.hasReconnectIns()) {
-            return requestObserver.onCompleted()
-        } else {
-            throw Error("Unreachable! Unknown client message")
+        val clientMessage = when {
+            message.hasGetParametersIns() -> handleGetParamsIns()
+            message.hasFitIns() -> handleFitIns(message)
+            message.hasEvaluateIns() -> handleEvaluateIns(message)
+            message.hasReconnectIns() -> {
+                requestObserver.onCompleted()
+                return
+            }
+            else -> throw Error("Unreachable! Unknown client message")
         }
         requestObserver.onNext(clientMessage)
         callback("Response sent to the server")
@@ -84,18 +75,31 @@ class FlowerServiceRunnable<X : Any, Y : Any>
     fun handleFitIns(message: ServerMessage): ClientMessage {
         Log.d(TAG, "Handling FitIns")
         callback("Handling Fit request from the server.")
-        Log.d(TAG, "Tensor List: ${message.fitIns.parameters.tensorsList} and config: ${message.fitIns.configMap}")
         val layers = message.fitIns.parameters.tensorsList
         assertIntsEqual(layers.size, flowerClient.layersSizes.size)
         val epochConfig = message.fitIns.configMap.getOrDefault(
             "local_epochs", Scalar.newBuilder().setSint64(1).build()
         )!!
-        var epochs = epochConfig.sint64.toInt()
+        val epochs = epochConfig.sint64.toInt()
+
+        val batchSizeConfig = message.fitIns.configMap.getOrDefault(
+            "batch_size", Scalar.newBuilder().setSint64(16).build()
+        )!!
+        val batchSize = batchSizeConfig.sint64.toInt()
+
         val newWeights = weightsFromLayers(layers)
         flowerClient.updateParameters(newWeights.toTypedArray())
-        flowerClient.fit(
+
+        val fitResult = flowerClient.fit(
             epochs,
-            lossCallback = { callback("Average loss: ${it.average()}.") })
+            batchSize,
+            lossCallback = { epoch, loss ->
+                callback("Epoch $epoch - Average loss: ${loss.average()}.")
+            }
+        )
+
+        Log.d(TAG, "Fit result: $fitResult")
+
         return fitResAsProto(weightsByteBuffers(), sampleSize)
     }
 
@@ -109,7 +113,7 @@ class FlowerServiceRunnable<X : Any, Y : Any>
         flowerClient.updateParameters(newWeights.toTypedArray())
         val (loss, accuracy) = flowerClient.evaluate()
         callback("Test Accuracy after this round = $accuracy")
-        return evaluateResAsProto(loss, sampleSize)
+        return evaluateResAsProto(loss, flowerClient.getTestSamplesCount())
     }
 
     private fun weightsByteBuffers() = flowerClient.getParameters()
@@ -147,10 +151,6 @@ fun evaluateResAsProto(accuracy: Float, testing_size: Int): ClientMessage {
     return ClientMessage.newBuilder().setEvaluateRes(res).build()
 }
 
-/**
- * Create a [FlowerServiceRunnable] with address to the Flower server.
- * @param flowerServerAddress Like "dns:///$host:$port".
- */
 suspend fun <X : Any, Y : Any> createFlowerService(
     flowerServerAddress: String,
     useTLS: Boolean,
@@ -161,9 +161,6 @@ suspend fun <X : Any, Y : Any> createFlowerService(
     return FlowerServiceRunnable(channel, flowerClient, callback)
 }
 
-/**
- * @param address Address of the gRPC server, like "dns:///$host:$port".
- */
 suspend fun createChannel(address: String, useTLS: Boolean = false): ManagedChannel {
     val channelBuilder =
         ManagedChannelBuilder.forTarget(address).maxInboundMessageSize(HUNDRED_MEBIBYTE)
