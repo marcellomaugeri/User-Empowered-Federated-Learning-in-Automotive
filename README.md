@@ -2,7 +2,7 @@
 This repo contains the code and experiments of the paper "User-Empowered Federated Learning in Android" to appear in the first TRUSTCHAIN workshop co-located at the IEEE Blockchain 2024 conference \(Copenhagen, August 19-22, 2024\).
 
 ## Disclaimer
-The provided code is a proof of concept and is not intended for production use. The code is provided as is and is not guaranteed to work. Please, feel free to reach out to the authors for any questions or clarifications. Pull requests are welcome after the presentation of the paper.
+The provided code is a proof of concept and is not intended for production use. The code is provided as is. Please, feel free to reach out to the authors for any questions or clarifications. Pull requests are welcome after the presentation of the paper.
 
 ## Abstract
 The proliferation of data generated through everyday device usage has prompted privacy concerns among users.
