@@ -1,6 +1,9 @@
 package flwr.android_client
 
+import android.content.Context
+import android.graphics.Color
 import android.os.Handler
+import android.os.Message
 import android.text.TextUtils
 import android.util.Log
 import androidx.car.app.CarContext
@@ -29,23 +32,22 @@ import dev.flower.flower_tflite.helpers.loadMappedAssetFile
 //import dev.flower.flower_tflite.helpers.categoricalCrossEntropyLoss
 import dev.flower.flower_tflite.helpers.negativeLogLikelihoodLoss
 import kotlinx.coroutines.*
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.io.LineNumberReader
 
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.random.Random
+import com.opencsv.CSVReader
+import java.io.FileReader
 
 // TabScreen: shows the status of the engine, settings, and logs
 class TabScreen(carContext: CarContext) : Screen(carContext) {
     object EngineStatusService {
         var isEngineOK: Boolean = true // Engine status, true if OK, false if not OK
             private set
-
-        val engineProblem: String // Error message to show when the engine is not OK
-            get() = if (isEngineOK) "" else "Engine overheating"
-
-        fun simulateEngineStatusChange() {
-            isEngineOK = !isEngineOK // Simulate engine status change
-        }
     }
 
     private val mTabs: MutableMap<String, Tab> = HashMap() // Tabs map
@@ -65,6 +67,7 @@ class TabScreen(carContext: CarContext) : Screen(carContext) {
     private var flowerClient: FlowerClient<FeatureArray, FloatArray>? = null
     private var trainingJob: Job? = null // Job for managing the training process
 
+    private var engineStatusText: String = "Engine is running smoothly"
     init {
         initializeEngineCheckRunnable()
     }
@@ -148,13 +151,13 @@ class TabScreen(carContext: CarContext) : Screen(carContext) {
 
     private fun createShortMessageTemplate(): MessageTemplate {
         val isEngineOK = EngineStatusService.isEngineOK
-        val message =
-            if (isEngineOK) "Engine is running smoothly" else "Problem: " + EngineStatusService.engineProblem
+        //val message =
+        //    if (isEngineOK) "Engine is running smoothly" else "Problem: " + EngineStatusService.engineProblem
 
         val iconResId = if (isEngineOK) R.drawable.ic_engine else R.drawable.ic_engine
         val icon = CarIcon.Builder(IconCompat.createWithResource(carContext, iconResId)).build()
 
-        return MessageTemplate.Builder(message)
+        return MessageTemplate.Builder(this.engineStatusText)
             .setIcon(icon)
             .build()
     }
@@ -215,17 +218,87 @@ class TabScreen(carContext: CarContext) : Screen(carContext) {
     private fun initializeEngineCheckRunnable() {
         engineCheckRunnable = object : Runnable {
             override fun run() {
-                val isEngineOK = EngineStatusService.isEngineOK
-                val statusMessage =
-                    if (isEngineOK) "Engine is running smoothly" else "Problem: " + EngineStatusService.engineProblem
-                val logTag = if (isEngineOK) "" else "[ERROR]"
-                //logAction("$logTag $statusMessage")
-                EngineStatusService.simulateEngineStatusChange() // Simulate engine status change
+                val engineStatus = mockUpdateStatus()
+                updateEngineStatusText(engineStatus)
+                val logTag = if (engineStatus != 0) "" else "[ERROR]"
+                logAction("$logTag $engineStatus")
                 invalidate()
                 handler.postDelayed(this, ENGINE_CHECK_INTERVAL.toLong())
             }
         }
         handler.post(engineCheckRunnable as Runnable) // Start periodic engine status check
+    }
+
+    private fun mockUpdateStatus() : Int {
+        var engineStatus = 0
+        val filePath = "data/test_1.csv"
+        try {
+            val randomLine = runBlocking {
+                val line = readRandomCsvLine(carContext, filePath)
+                Log.d("D", "Random line: $line")
+                // Split the line into label (the first element) and features, all separated by commas and convert to FloatArray
+                val parts = line?.split(",")?.map { it.toFloat() }?.toFloatArray()
+                val legData = mutableListOf<FeatureArray>()
+                //Exclude the first element, the label
+                legData.add(parts?.copyOfRange(1, parts.size)!!)
+                Log.d("D", "legData: $legData")
+                val inferenceResult = flowerClient?.inference(flowerClient!!.spec.convertX(legData))
+                val firstResult = inferenceResult?.get(0)
+                val maxEntry = firstResult?.withIndex()?.maxWithOrNull { a, b -> a.value.compareTo(b.value) }
+                val maxIndex = maxEntry?.index
+                val maxValue = maxEntry?.value
+                if (maxIndex != null) {
+                    engineStatus = maxIndex
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return engineStatus
+    }
+
+    suspend fun readRandomCsvLine(context: Context, fileName: String): String? {
+        return withContext(Dispatchers.IO) {
+            val lineCount = countLines(context, fileName)
+            if (lineCount == 0) return@withContext null // Handle empty file
+
+            val randomLineIndex = Random.nextInt(lineCount)
+            Log.d("D", "Random line index: $randomLineIndex")
+            var randomLine: String? = null
+            LineNumberReader(InputStreamReader(context.assets.open(fileName))).use { reader ->
+                reader.lineNumber = randomLineIndex // Directly skip to the random line
+                randomLine = reader.readLine()
+            }
+            randomLine
+        }
+    }
+
+    // Helper function to efficiently count lines in a file (remains the same)
+    private suspend fun countLines(context: Context, fileName: String): Int {
+        return withContext(Dispatchers.IO) {
+            BufferedReader(InputStreamReader(context.assets.open(fileName))).useLines { it.count() }
+        }
+    }
+
+
+    private fun updateEngineStatusText(engineStatus: Int) {
+        when (engineStatus) {
+            0 -> {
+                this.engineStatusText = "Engine Status: All checks OK. Normal Operating Conditions."
+            }
+            1 -> {
+                this.engineStatusText = "Engine Status: Rich Mixture detected. Fault code: 1."
+            }
+            2 -> {
+                this.engineStatusText = "Engine Status: Lean Mixture detected. Fault code: 2."
+            }
+            3 -> {
+                this.engineStatusText = "Engine Status: Low voltage detected. Fault code: 3."
+            }
+            else -> {
+                this.engineStatusText = "Engine Status: Unknown fault detected. Fault code: -1"
+            }
+        }
     }
 
     private fun logAction(action: String) {

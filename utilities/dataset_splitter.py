@@ -1,3 +1,4 @@
+import pandas as pd
 from sklearn.model_selection import train_test_split
 
 def split_dataset(input_csv, output_csv1, output_csv2, output_csv3):
