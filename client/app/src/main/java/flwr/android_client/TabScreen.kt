@@ -1,9 +1,9 @@
 package flwr.android_client
 
+//import dev.flower.flower_tflite.helpers.categoricalCrossEntropyLoss
+
 import android.content.Context
-import android.graphics.Color
 import android.os.Handler
-import android.os.Message
 import android.text.TextUtils
 import android.util.Log
 import androidx.car.app.CarContext
@@ -29,19 +29,21 @@ import dev.flower.flower_tflite.SampleSpec
 import dev.flower.flower_tflite.createFlowerService
 import dev.flower.flower_tflite.helpers.classifierAccuracy
 import dev.flower.flower_tflite.helpers.loadMappedAssetFile
-//import dev.flower.flower_tflite.helpers.categoricalCrossEntropyLoss
 import dev.flower.flower_tflite.helpers.negativeLogLikelihoodLoss
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.Runnable
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.LineNumberReader
-
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.random.Random
-import com.opencsv.CSVReader
-import java.io.FileReader
 
 // TabScreen: shows the status of the engine, settings, and logs
 class TabScreen(carContext: CarContext) : Screen(carContext) {
@@ -260,15 +262,17 @@ class TabScreen(carContext: CarContext) : Screen(carContext) {
     suspend fun readRandomCsvLine(context: Context, fileName: String): String? {
         return withContext(Dispatchers.IO) {
             val lineCount = countLines(context, fileName)
-            if (lineCount == 0) return@withContext null // Handle empty file
+            Log.d("D", "Total line count: $lineCount")
+            if (lineCount == 0) return@withContext null
 
-            val randomLineIndex = Random.nextInt(lineCount)
+            val randomLineIndex = Random.Default.nextInt(lineCount)
             Log.d("D", "Random line index: $randomLineIndex")
             var randomLine: String? = null
-            LineNumberReader(InputStreamReader(context.assets.open(fileName))).use { reader ->
-                reader.lineNumber = randomLineIndex // Directly skip to the random line
+            context.assets.open(fileName).bufferedReader().use { reader ->
+                repeat(randomLineIndex) { reader.readLine() } // Skip lines
                 randomLine = reader.readLine()
             }
+            Log.d("D", "Selected random line: $randomLine")
             randomLine
         }
     }
