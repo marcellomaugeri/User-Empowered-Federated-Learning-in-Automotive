@@ -63,4 +63,4 @@ We set the number of local epochs to 10, the number of round to 10 and batch siz
 
 ## Troubleshooting
 - The generator for the tflite model requires tensorflow-cpu==2.9.2, if you have a different version of tensorflow installed, please create a virtual environment and install the required version. If your architecture does not support tensorflow-cpu (e.g. Apple Silicon), you can run the code on Colab.
-- In MacOS there is a broken dependency in the client code (protoc). We will polish the solution soon.
+- In MacOS there is a broken dependency in the flower_tflite code (protoc). To fix this, go in client/flower_tflite/build.gradle, comment line 36 and uncomment line 38.
