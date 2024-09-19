@@ -1,5 +1,19 @@
-# User-Empowered-Federated-Learning-in-Automotive
-This repo contains the code and experiments of the paper "User-Empowered Federated Learning in Android" to appear in the first TRUSTCHAIN workshop co-located at the IEEE Blockchain 2024 conference \(Copenhagen, August 19-22, 2024\).
+# User-Empowered Federated Learning in the Automotive Domain
+This repo contains the code and experiments of the paper ["User-Empowered Federated Learning in the Automotive Domain"](https://doi.org/10.1109/Blockchain62396.2024.00098).
+Please, use this bib entry for referencing our work and derivatives:
+```
+@INPROCEEDINGS{10664305,
+  author={Maugeri, Marcello and Paolo Morana, Mirko Ignazio and Esposito, Sergio and Bella, Giampaolo},
+  booktitle={2024 IEEE International Conference on Blockchain (Blockchain)}, 
+  title={User-Empowered Federated Learning in the Automotive Domain}, 
+  year={2024},
+  volume={},
+  number={},
+  pages={669-674},
+  keywords={Training;Data privacy;Federated learning;Self-supervised learning;Flowering plants;Feature extraction;Data models;Federated Learning;Privacy;Automotive;Privacy-Enhancing Technologies},
+  doi={10.1109/Blockchain62396.2024.00098}}
+```
+
 
 ## Disclaimer
 The provided code is a proof of concept and is not intended for production use. The code is provided as is. Please, feel free to reach out to the authors for any questions or clarifications. Pull requests are welcome after the presentation of the paper.
